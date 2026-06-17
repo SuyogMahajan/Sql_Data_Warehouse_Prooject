@@ -1,6 +1,4 @@
 CREATE database if not exists SDW_BRONZE;
-CREATE database if not exists SDW_SILVER;
-CREATE database if not exists SDW_GOLD;
 
 CREATE TABLE IF NOT EXISTS SDW_BRONZE.CRM_CUST_INFO 
 (
