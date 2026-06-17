@@ -1,0 +1,66 @@
+
+-- CLEANING AND LOADING CRM_CUST_INFO INTO SILVER LAYER
+
+TRUNCATE TABLE  SDW_SILVER.CRM_CUST_INFO;
+INSERT INTO SDW_SILVER.CRM_CUST_INFO
+(   cst_id,
+    cst_key,
+    cst_firstname,
+    cst_lastname,
+    cst_marital_status,
+    cst_gndr,
+    cst_create_date )
+SELECT 
+T.CST_ID,
+T.CST_KEY,
+TRIM(T.CST_FIRSTNAME),
+TRIM(T.CST_LASTNAME),
+CASE WHEN UPPER(TRIM(T.cst_marital_status)) = 'M' THEN 'Married'
+     WHEN UPPER(TRIM(T.cst_marital_status)) = 'S' THEN 'Single'
+     ELSE 'N/A' END cst_marital_status,
+CASE WHEN UPPER(TRIM(T.CST_GNDR)) = 'M' THEN 'Male'
+     WHEN UPPER(TRIM(T.CST_GNDR)) = 'F' THEN 'Female'
+     ELSE 'N/A' END CST_GNDR,
+T.CST_CREATE_DATE
+FROM
+(
+SELECT 
+*,
+ROW_NUMBER() OVER(PARTITION BY P.CST_ID ORDER BY P.CST_CREATE_DATE DESC) ROW_NUM
+FROM sdw_bronze.crm_cust_info P WHERE P.CST_ID != 0 AND P.CST_ID IS NOT NULL
+) T
+WHERE T.ROW_NUM = 1;
+
+-- CLEANING AND LOADING CRM_PRD_INFO INTO SILVER LAYER
+TRUNCATE sdw_silver.crm_prd_info;
+INSERT INTO sdw_silver.crm_prd_info
+(
+prd_id,
+cat_id,
+prd_key,
+prd_nm,
+prd_cost,
+prd_line,
+prd_start_dt,
+prd_end_dt
+)
+SELECT
+prd_id,
+REPLACE(SUBSTR(TRIM(prd_key), 1, 5), '-', '_') cat_id,
+REPLACE(SUBSTR(TRIM(prd_key), 7), '-', '_')  prd_key,
+prd_nm,
+prd_cost,
+CASE 
+	WHEN UPPER(TRIM(prd_line)) = 'M' THEN 'Mountain'
+    WHEN UPPER(TRIM(prd_line)) = 'R' THEN 'Road'
+    WHEN UPPER(TRIM(prd_line)) = 'S' THEN 'Other Sales'
+    WHEN UPPER(TRIM(prd_line)) = 'T' THEN 'Touring'
+    ELSE 'N/A'
+END AS prd_line,
+prd_start_dt prd_start_dt,
+DATE_SUB( LEAD(prd_start_dt) OVER (PARTITION BY prd_key ORDER BY prd_start_dt) ,INTERVAL 1 DAY)  prd_end_dt
+from sdw_bronze.crm_prd_info;
+
+
+            
+
