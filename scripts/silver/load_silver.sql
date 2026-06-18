@@ -103,3 +103,64 @@ SELECT
 		ELSE sls_price  -- Derive price if original value is invalid
 	END AS sls_price
 FROM sdw_bronze.crm_sales_details;
+
+-- CLEANING AND LOADING ERP_CUST_AZ12 INTO SILVER LAYER
+
+TRUNCATE TABLE sdw_silver.erp_cust_az12;
+
+INSERT INTO sdw_silver.erp_cust_az12 (
+	cid,
+	bdate,
+	gen
+)
+SELECT
+	CASE
+		WHEN cid LIKE 'NAS%' THEN SUBSTRING(cid, 4, LENGTH(cid)) -- Remove 'NAS' prefix if present
+		ELSE cid
+	END AS cid, 
+	
+	CASE
+		WHEN bdate > CURRENT_DATE() THEN NULL
+		ELSE bdate
+	END AS bdate, -- Set future birthdates to NULL
+	
+	CASE
+        WHEN UPPER(TRIM(REPLACE(REPLACE(gen, CHAR(13), ''),CHAR(10), ''))) IN ('F', 'FEMALE') THEN 'Female'
+        WHEN UPPER(TRIM(REPLACE(REPLACE(gen, CHAR(13), ''),CHAR(10), ''))) IN ('M', 'MALE') THEN 'Male'
+        ELSE 'N/A'
+	END AS gender -- Normalize gender values and handle unknown cases
+FROM sdw_bronze.erp_cust_az12;
+
+-- CLEANING AND LOADING ERP_LOC_A101 INTO SILVER LAYER
+
+TRUNCATE TABLE sdw_silver.erp_loc_a101;
+INSERT INTO silver.erp_loc_a101 (
+	cid,
+	cntry
+)
+SELECT
+	REPLACE(cid, '-', '') AS cid, 
+	CASE
+		WHEN UPPER(TRIM(REPLACE(REPLACE(cntry, CHAR(13), ''),CHAR(10), ''))) = 'DE' THEN 'Germany'
+		WHEN UPPER(TRIM(REPLACE(REPLACE(cntry, CHAR(13), ''),CHAR(10), ''))) IN ('US', 'USA') THEN 'United States'
+		WHEN UPPER(TRIM(REPLACE(REPLACE(cntry, CHAR(13), ''),CHAR(10), ''))) = '' OR cntry IS NULL THEN 'N/A'
+		ELSE UPPER(TRIM(REPLACE(REPLACE(cntry, CHAR(13), ''),CHAR(10), '')))
+	END AS cntry -- Normalize and Handle missing or blank country codes
+FROM sdw_bronze.erp_loc_a101;
+
+-- CLEANING AND LOADING ERP_PXCAT_G1V2 INTO SILVER LAYER
+
+TRUNCATE TABLE sdw_silver.erp_pxcat_g1v2;
+		
+INSERT INTO sdw_silver.erp_pxcat_g1v2 (
+	id,
+	cat,
+	subcat,
+	maintenance
+)
+SELECT
+	id,
+	cat,
+	subcat,
+	maintenance
+FROM sdw_bronze.erp_pxcat_g1v2;
