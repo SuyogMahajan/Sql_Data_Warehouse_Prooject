@@ -457,3 +457,88 @@ Silver Layer Actions:
 ✓ Preserve historical product versions.
 ✓ Populate DWH_CREATE_DATE with CURRENT_TIMESTAMP.
 */
+
+
+# /*
+
+Data Quality Checks - CRM Sales Details
+Source Table: SDW_BRONZE.CRM_SALES_DETAILS
+Target Table: SDW_SILVER.CRM_SALES_DETAILS
+==========================================
+
+*/
+
+-- ============================================================================
+-- sls_due_dt
+-- ============================================================================
+
+-- Check for invalid due dates
+SELECT NULLIF(sls_due_dt, 0) AS sls_due_dt
+FROM SDW_BRONZE.CRM_SALES_DETAILS
+WHERE sls_due_dt <= 0
+OR LENGTH(sls_due_dt) != 8
+OR sls_due_dt > 20500101
+OR sls_due_dt < 19000101;
+
+/*
+Findings:
+
+* Invalid due dates found.
+* Invalid dates will be converted to NULL.
+  */
+
+-- ============================================================================
+-- Date Validation
+-- ============================================================================
+
+SELECT *
+FROM SDW_BRONZE.CRM_SALES_DETAILS
+WHERE sls_order_dt > sls_ship_dt
+OR sls_order_dt > sls_due_dt;
+
+/*
+Findings:
+
+* Order date should not be later than shipping or due date.
+  */
+
+-- ============================================================================
+-- Sales Validation
+-- ============================================================================
+
+SELECT DISTINCT
+sls_sales,
+sls_quantity,
+sls_price
+FROM SDW_BRONZE.CRM_SALES_DETAILS
+WHERE sls_sales <> sls_quantity * sls_price
+OR sls_sales IS NULL
+OR sls_quantity IS NULL
+OR sls_price IS NULL
+OR sls_sales <= 0
+OR sls_quantity <= 0
+OR sls_price <= 0;
+
+/*
+Findings:
+
+* Validate Sales = Quantity × Price.
+* Ensure sales, quantity, and price are positive and non-null.
+  */
+
+-- ============================================================================
+-- Summary
+-- ============================================================================
+
+/*
+Issues Checked:
+✓ Invalid dates
+✓ Date sequence validation
+✓ Sales calculation consistency
+✓ Null and negative values
+
+Silver Layer Actions:
+✓ Convert invalid dates to NULL
+✓ Validate business rules
+✓ Load only clean and consistent records
+*/
